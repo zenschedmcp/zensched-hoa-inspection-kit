@@ -188,6 +188,7 @@ A 200-lot wave is 200 shifts. The app will list them; work them in lot-code orde
 | ZenSched tools return an auth error | Key still says `zsc_your_key_here`, or was pasted with a space | Re-paste the key, restart |
 | `payment_required` | Metered call with no balance | Follow the instructions in the response; $5 deposit |
 | Denver lot created at the wrong hour | Lot has the wrong `tz_offset` | "Set the Pinecrest lots to Mountain time (-06:00)"; the AI fixes the lots and updates the shifts |
+| Shifts an hour off after the clocks changed | `tz_offset` is a fixed offset (`-05:00`), not a zone name, and was not updated for daylight saving | Tell the AI "clocks changed, Oakridge is now -06:00"; it updates the lots and re-times any shifts already created. `SKILL.md` checks this when it rolls a new month |
 | AI refuses a wave longer than 60 days | Working as intended; ZenSched events are capped at 60 days | Ask for monthly waves; the AI creates one wave row and one set of events per month (≤ 59 days) |
 | Check-in not GPS-verified at a gated community | You parked outside the policy radius, or the pin is on the road | "Set the check-in radius to 200 m" (`policy_update`), or "move Lot 14's pin onto the driveway" (`location_update`, free; the cached lot keeps it), or `location_refine` ($0.10). Do not ask to widen the radius "on that location" |
 | App would not let me check in 10 minutes early | Early check-in window too small | "Allow check-in 15 minutes before the shift" (`checkin_slack_min`) |
@@ -228,11 +229,11 @@ If something is confusing or broken in ZenSched itself, ask the AI to call `feed
 - shift: `shift-visit-{visit_id}` (a redo is a new row)
 - cancel: `cancel-shift-{shift_id}`
 - worker: `worker-{email}`
-- form: `form-violation-report`; assignment: `assign-form-{wave_id}-{event_id}`
+- form: `form-violation-report`; assignment: `assign-form-{wave_id}-{event_id}` (`form_assign` and `shift_cancel` accept `idempotency_key` on the live server)
 
 ZenSched caches idempotent responses for 24 hours. `visits_upcoming` emits `idempotency_key`; `lots_needs_location` emits `loc_idempotency_key`.
 
-**Timestamps.** `shift_create` takes `start` and `end` in ISO 8601 with an explicit offset, never `Z`. The offset is the **lot's** (`lots.tz_offset`), which is why `visits_upcoming` builds the strings and the agent is told not to.
+**Timestamps.** `shift_create` takes `start` and `end` in ISO 8601 with an explicit offset, never `Z`. The offset is the **lot's** (`lots.tz_offset`), which is why `visits_upcoming` builds the strings and the agent is told not to. `tz_offset` is a fixed `[+-]HH:MM`, not an IANA zone, so it does not follow daylight saving by itself; `SKILL.md` rule 10 and the "Roll next month" step update it when a wave crosses a DST change (US / CA November and March, AU October and April).
 
 **Metered reads.** `form_submissions` and `form_export` bill $0.05 per submission read ($0.15 with media), once per submission ever; replays, including the board-pack export after the JSON pull for QA, are free. `form_export(format="json")` for a wave is the intended pull; `form_submissions(form_id, event_id=...)` for one lot. `shift_list`, `shift_status`, `event_get`, and `timesheet_export(mode="hours"|"raw")` are free.
 
