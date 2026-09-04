@@ -158,13 +158,14 @@ event_create:
 form_assign:
   form_id: 401
   event_id: 7101
+  idempotency_key: "assign-form-1-7101"
   → status: "assigned", form_id: 401, event_id: 7101, policy_id: 0
 
 sqlite_execute: UPDATE wave_lots SET zensched_event_id = 7101, event_valid_until = '2026-09-30' WHERE wave_lot_id = 1;
 
-event_create: location_id 9102, title "Lot 18 - Oak Lane",   2026-09-01..2026-09-30, key "event-wl-2-20260901"  → 7102;  form_assign 401 → 7102
-event_create: location_id 9103, title "Lot 22 - Oak Lane",   2026-09-01..2026-09-30, key "event-wl-3-20260901"  → 7103;  form_assign 401 → 7103
-event_create: location_id 9104, title "Lot 7 - Maple Court", 2026-09-01..2026-09-30, key "event-wl-4-20260901"  → 7104;  form_assign 401 → 7104
+event_create: location_id 9102, title "Lot 18 - Oak Lane",   2026-09-01..2026-09-30, key "event-wl-2-20260901"  → 7102;  form_assign 401 → 7102, key "assign-form-1-7102"
+event_create: location_id 9103, title "Lot 22 - Oak Lane",   2026-09-01..2026-09-30, key "event-wl-3-20260901"  → 7103;  form_assign 401 → 7103, key "assign-form-1-7103"
+event_create: location_id 9104, title "Lot 7 - Maple Court", 2026-09-01..2026-09-30, key "event-wl-4-20260901"  → 7104;  form_assign 401 → 7104, key "assign-form-1-7104"
 
 sqlite_execute: INSERT INTO visits (wave_lot_id) VALUES (1);
 sqlite_execute: INSERT INTO visits (wave_lot_id) VALUES (2);
@@ -325,7 +326,7 @@ sqlite_execute: INSERT INTO wave_lots (wave_id, lot_id, visits_required) SELECT 
   → wave_lot_ids 5–8 (lots 1–4 reused; zensched_location_id already set — no geocode)
 
 event_create: location 9101, title "Lot 12 - Oak Lane", 2026-10-01..2026-10-31, key "event-wl-5-20261001"  → 7201
-form_assign: form 401, event 7201
+form_assign: form 401, event 7201, key "assign-form-2-7201"
 … (lots 18, 22, 7)
 
 sqlite_execute: INSERT INTO visits (wave_lot_id) VALUES (5);
@@ -334,3 +335,13 @@ sqlite_execute: UPDATE inspection_waves SET status = 'active' WHERE wave_id = 2;
 ```
 
 > Rolled **Oakridge Monthly - Oct 2026**: 4 lots, Oct 1–31, same window and fees. No new geocodes. Ready to assign.
+
+October is still Central Daylight Time (`-05:00`), so no offset change. When the owner later says "roll November", US clocks change on Sunday Nov 1, 2026, so before any `shift_create` for that wave the agent runs (SKILL.md roll step 3b):
+
+```
+sqlite_execute: UPDATE lots SET tz_offset = '-06:00' WHERE association_id = 1 AND tz_offset = '-05:00';
+sqlite_execute: UPDATE associations SET tz_offset = '-06:00' WHERE association_id = 1;
+sqlite_execute: UPDATE settings SET value = '-06:00' WHERE key = 'timezone_offset';
+```
+
+and `visits_upcoming` then hands back `start_iso` like `2026-11-03T08:00:00-06:00`.
